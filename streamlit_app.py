@@ -1,49 +1,45 @@
 import streamlit as st
 from openai import OpenAI
 
-# แสดงชื่อเรื่องและคำอธิบาย (ภาษาไทย)
-st.title("💬 แชทบอท (ตอบเป็นภาษาไทย)")
+# Show title and description.
+st.title("💬 Chatbot")
 st.write(
-    "นี่คือแชทบอทตัวอย่างที่ใช้โมเดล GPT-4.1 ของ OpenAI ในการสร้างคำตอบ โดยแอปนี้จะตั้งค่าให้ตอบเป็นภาษาไทยเสมอ\n"
-    "เพื่อใช้งาน ให้ใส่ OpenAI API Key ของคุณ (ดูได้ที่ https://platform.openai.com/account/api-keys) "
-    "และสามารถเรียนรู้วิธีสร้างแอปนี้ได้จาก: https://docs.streamlit.io/develop/tutorials/llms/build-conversational-apps"
+    "This is a simple chatbot that uses OpenAI's GPT-4.1 model to generate responses. "
+    "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys). "
+    "You can also learn how to build this app step by step by [following our tutorial](https://docs.streamlit.io/develop/tutorials/llms/build-conversational-apps)."
 )
 
-# รับ API Key
+# Ask user for their OpenAI API key via `st.text_input`.
+# Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
+# via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
 openai_api_key = st.text_input("OpenAI API Key", type="password")
 if not openai_api_key:
-    st.info("กรุณากรอก OpenAI API Key เพื่อใช้งาน", icon="🗝️")
+    st.info("Please add your OpenAI API key to continue.", icon="🗝️")
 else:
-    # สร้าง client ของ OpenAI
+
+    # Create an OpenAI client.
     client = OpenAI(api_key=openai_api_key)
 
-    # สร้างตัวแปรใน session state สำหรับเก็บข้อความแชท
+    # Create a session state variable to store the chat messages. This ensures that the
+    # messages persist across reruns.
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    # ถ้าไม่มี system message ที่บอกให้ตอบเป็นภาษาไทย ให้แทรกเข้าไปเป็นข้อความแรก
-    has_system = any(m.get("role") == "system" for m in st.session_state.messages)
-    if not has_system:
-        st.session_state.messages.insert(0, {
-            "role": "system",
-            "content": "You are a helpful assistant. Please reply in Thai (ภาษาไทย) for all user messages."
-        })
-
-    # แสดงข้อความที่มีอยู่แล้ว ยกเว้น system messages (ไม่แสดงให้ผู้ใช้เห็น)
+    # Display the existing chat messages via `st.chat_message`.
     for message in st.session_state.messages:
-        if message.get("role") == "system":
-            continue
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # ฟิลด์ให้ผู้ใช้พิมพ์ (placeholder เป็นภาษาไทย)
-    if prompt := st.chat_input("ถามฉันเป็นภาษาไทยได้เลย..."):
-        # เก็บและแสดงข้อความของผู้ใช้
+    # Create a chat input field to allow the user to enter a message. This will display
+    # automatically at the bottom of the page.
+    if prompt := st.chat_input("What is up?"):
+
+        # Store and display the current prompt.
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # เรียก OpenAI เพื่อสร้างคำตอบ (รวมทุกข้อความรวมถึง system message)
+        # Generate a response using the OpenAI API.
         stream = client.chat.completions.create(
             model="gpt-4.1",
             messages=[
@@ -53,7 +49,8 @@ else:
             stream=True,
         )
 
-        # สตรีมคำตอบกลับไปยังหน้า แล้วเก็บคำตอบลง session state
+        # Stream the response to the chat using `st.write_stream`, then store it in 
+        # session state.
         with st.chat_message("assistant"):
             response = st.write_stream(stream)
         st.session_state.messages.append({"role": "assistant", "content": response})
